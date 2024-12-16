@@ -46,6 +46,23 @@ TRoomDB::TRoomDB(TMap* pMap)
     addArea(-1, mpMap->getDefaultAreaName());
 }
 
+TRoomDB::~TRoomDB()
+{
+    // Delete all rooms
+    QList<TRoom*> const rPtrL = getRoomPtrList();
+    for (auto room : rPtrL) {
+        delete room;
+    }
+    rooms.clear();
+
+    // Delete all areas
+    QList<TArea*> const areaList = getAreaPtrList();
+    for (auto area : areaList) {
+        delete area;
+    }
+    areas.clear();
+}
+
 TRoom* TRoomDB::getRoom(int id)
 {
     if (id < 0) {
