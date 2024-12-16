@@ -46,22 +46,7 @@ TRoomDB::TRoomDB(TMap* pMap)
     addArea(-1, mpMap->getDefaultAreaName());
 }
 
-TRoomDB::~TRoomDB()
-{
-    // Delete all rooms
-    QList<TRoom*> const rPtrL = getRoomPtrList();
-    for (auto room : rPtrL) {
-        delete room;
-    }
-    rooms.clear();
-
-    // Delete all areas
-    QList<TArea*> const areaList = getAreaPtrList();
-    for (auto area : areaList) {
-        delete area;
-    }
-    areas.clear();
-}
+TRoomDB::~TRoomDB() = default;
 
 TRoom* TRoomDB::getRoom(int id)
 {
@@ -70,7 +55,7 @@ TRoom* TRoomDB::getRoom(int id)
     }
     const auto i = rooms.constFind(id);
     if (i != rooms.constEnd() && i.key() == id) {
-        return i.value();
+        return i.value().get();
     }
     return nullptr;
 }
@@ -78,8 +63,9 @@ TRoom* TRoomDB::getRoom(int id)
 bool TRoomDB::addRoom(int id)
 {
     if (!rooms.contains(id) && id > 0) {
-        rooms[id] = new TRoom(this);
-        rooms[id]->setId(id);
+        auto room = std::make_unique<TRoom>(this);
+        room->setId(id);
+        rooms[id] = std::move(room);
         // there is no point in updating the entranceMap here, as the room has no exit information
         return true;
     }
@@ -93,7 +79,7 @@ bool TRoomDB::addRoom(int id)
 bool TRoomDB::addRoom(int id, TRoom* pR, bool isMapLoading)
 {
     if (!rooms.contains(id) && id > 0 && pR) {
-        rooms[id] = pR;
+        rooms[id] = std::unique_ptr<TRoom>(pR);
         pR->setId(id);
         updateEntranceMap(pR, isMapLoading);
         return true;
@@ -311,8 +297,7 @@ bool TRoomDB::removeRoom(int id)
         if (mpMap->mTargetID == id) {
             mpMap->mTargetID = 0;
         }
-        TRoom* pR = getRoom(id);
-        delete pR;
+        rooms.remove(id);
         return true;
     }
     return false;
@@ -351,12 +336,13 @@ void TRoomDB::removeRoom(QSet<int>& ids)
 
 bool TRoomDB::removeArea(int id)
 {
-    if (TArea* pA = areas.value(id)) {
+    auto it = areas.find(id);
+    if (it != areas.end()) {
         if (!rooms.isEmpty()) {
             // During map deletion rooms will already
             // have been cleared so this would not
             // be wanted to be done in that case.
-            removeRoom(pA->rooms);
+            removeRoom(it->get()->rooms);
         }
         // During map deletion areaNamesMap will
         // already have been cleared !!!
@@ -439,7 +425,12 @@ void TRoomDB::buildAreas()
 
 const QList<TRoom*> TRoomDB::getRoomPtrList() const
 {
-    return rooms.values();
+    QList<TRoom*> result;
+    result.reserve(rooms.size());
+    for (const auto& room : rooms) {
+        result.append(room.get());
+    }
+    return result;
 }
 
 QList<int> TRoomDB::getRoomIDList()
@@ -451,10 +442,12 @@ TArea* TRoomDB::getArea(int id)
 {
     //area id of -1 is a room in the "void", 0 is a failure
     if (id > 0 || id == -1) {
-        return areas.value(id, nullptr);
-    } else {
-        return nullptr;
+        auto it = areas.find(id);
+        if (it != areas.end()) {
+            return it->get();
+        }
     }
+    return nullptr;
 }
 
 // Used by TMap::audit() - can detect and return areas with normally invalids Id (less than -1 or zero)!
@@ -503,7 +496,7 @@ bool TRoomDB::setAreaName(int areaID, QString name)
 bool TRoomDB::addArea(int id)
 {
     if (!areas.contains(id)) {
-        areas[id] = new TArea(mpMap, this);
+        areas[id] = std::make_unique<TArea>(mpMap, this);
         if (!areaNamesMap.contains(id)) {
             // Must provide a name for this new area
             QString newAreaName = mpMap->getUnnamedAreaName();
@@ -580,11 +573,11 @@ bool TRoomDB::addArea(int id, QString name)
 // Used by TMap::readJsonMapFile(...) to insert an already populated area in:
 bool TRoomDB::addArea(TArea* pA, const int id, const QString& name)
 {
-    if (name.isEmpty()) {
+    if (name.isEmpty() || !pA) {
         return false;
     }
 
-    areas.insert(id, pA);
+    areas.insert(id, std::unique_ptr<TArea>(pA));
     areaNamesMap.insert(id, name);
     // Need to force recalculation of limits:
     pA->mIsDirty = true;
@@ -593,7 +586,12 @@ bool TRoomDB::addArea(TArea* pA, const int id, const QString& name)
 
 const QList<TArea*> TRoomDB::getAreaPtrList() const
 {
-    return areas.values();
+    QList<TArea*> result;
+    result.reserve(areas.size());
+    for (const auto& area : areas) {
+        result.append(area.get());
+    }
+    return result;
 }
 
 QList<int> TRoomDB::getAreaIDList()

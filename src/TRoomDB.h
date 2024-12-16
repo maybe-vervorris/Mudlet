@@ -31,6 +31,8 @@
 #include <QString>
 #include "post_guard.h"
 
+#include <memory>
+
 #include "utils.h"
 
 class TArea;
@@ -108,9 +110,9 @@ private:
     bool __removeRoom(int id);
     void setAreaRooms(int, const QSet<int>&); // Used by XMLImport to fix rooms data after import
 
-    QHash<int, TRoom*> rooms;
+    QHash<int, std::unique_ptr<TRoom>> rooms;
     QMultiHash<int, int> entranceMap; // key is exit target, value is exit source
-    QMap<int, TArea*> areas;
+    QMap<int, std::unique_ptr<TArea>> areas;
     QMap<int, QString> areaNamesMap;
     TMap* mpMap;
     QSet<int>* mpTempRoomDeletionSet; // Used during bulk room deletion
