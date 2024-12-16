@@ -71,8 +71,20 @@ public:
     bool setAreaName(int areaID, QString name);
     const QList<TRoom*> getRoomPtrList() const;
     const QList<TArea*> getAreaPtrList() const;
-    const QHash<int, TRoom*>& getRoomMap() const { return rooms; }
-    const QMap<int, TArea*>& getAreaMap() const { return areas; }
+    QHash<int, TRoom*> getRoomMap() const {
+        QHash<int, TRoom*> result;
+        for (const auto& pair : rooms) {
+            result.insert(pair.first, pair.second.get());
+        }
+        return result;
+    }
+    QMap<int, TArea*> getAreaMap() const {
+        QMap<int, TArea*> result;
+        for (const auto& pair : areas) {
+            result.insert(pair.first, pair.second.get());
+        }
+        return result;
+    }
     QList<int> getRoomIDList();
     QList<int> getAreaIDList();
     const QMap<int, QString>& getAreaNamesMap() const { return areaNamesMap; }
